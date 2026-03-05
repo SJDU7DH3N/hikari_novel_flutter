@@ -23,7 +23,7 @@ class Request {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
     'accept':
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'accept-language': 'zh-TW,zh;q=0.9,en;q=0.8',
+    'accept-language': 'zh-TW,zh;q=0.9,en;q=0.8,en-US;q=0.7',
     'accept-encoding': 'gzip, deflate, br',
     'sec-ch-ua': '"Chromium";v="134", "Not;A=Brand";v="24", "Google Chrome";v="134"',
     'sec-ch-ua-mobile': '?0',
@@ -33,20 +33,29 @@ class Request {
     'sec-fetch-user': '?1',
     'sec-fetch-dest': 'document',
     'upgrade-insecure-requests': '1',
+    'cache-control': 'max-age=0',
   };
 
   static final _dioCookieJar = ckjar.CookieJar();
-  static final Dio dio =
-      Dio(
-          BaseOptions(
-            headers: userAgent,
-            responseType: ResponseType.bytes, //使用bytes获取原始数据，方便解码
-            followRedirects: false, //使302重定向手动处理
-            validateStatus: (status) => status != null, //只要不是 null，就交给拦截器处理,
-          ),
-        )
-        ..interceptors.add(CloudflareInterceptor())
-        ..interceptors.add(CookieManager(_dioCookieJar));
+  static final Dio dio = Dio(
+    BaseOptions(
+      responseType: ResponseType.bytes,
+      followRedirects: false,
+      validateStatus: (status) => status != null,
+    ),
+  )
+    ..interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        // 強制套用完整瀏覽器標頭
+        options.headers.addAll(userAgent);
+        options.headers['referer'] = 'https://www.wenku8.net/';
+        options.headers['origin'] = 'https://www.wenku8.net';
+        options.headers['connection'] = 'keep-alive';
+        return handler.next(options);
+      },
+    ))
+    ..interceptors.add(CloudflareInterceptor())
+    ..interceptors.add(CookieManager(_dioCookieJar));
 
   static void initCookie() {
     final localCookie = LocalStorageService.instance.getCookie();
